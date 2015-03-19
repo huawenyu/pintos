@@ -21,8 +21,8 @@ void debug_backtrace_all (void);
 
 /* our debug message, please diable it after debug,
    otherwise it will conflict with test.
-*/
 #define NDEBUG
+*/
 
 #ifdef NDEBUG
 #include <stdio.h>

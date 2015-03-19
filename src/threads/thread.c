@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>  /* PRId64 */
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -23,6 +24,9 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+
+/* List of processes in sleep state, that is, processes call sleep */
+static struct list sleep_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -91,6 +95,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&sleep_list);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -120,7 +125,7 @@ thread_start (void)
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
-thread_tick (void) 
+thread_tick (int64_t ticks) 
 {
   struct thread *t = thread_current ();
 
@@ -133,6 +138,8 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+
+  thread_wake(ticks);
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -248,6 +255,59 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+/* This fucntion will cause the thread block and disable-schedule
+ *   until timer_interrupt() make it schedule again.
+ */
+void
+thread_sleep(int64_t end_ticks)
+{
+  struct thread *t;
+  enum intr_level old_level;
+
+  ASSERT (!intr_context());
+  old_level = intr_disable();
+
+  /* if log before intr, the output will be mess. */
+  TRACE ("push-back sleep wait %" PRId64 "\n", end_ticks);
+
+  t = thread_current();
+  t->sleep_end = end_ticks;
+  list_push_back(&sleep_list, &t->sleep_elem);
+  thread_block();
+
+  intr_set_level(old_level);
+}
+
+/* Wakes all sleeping threads whose sleep_end is less than current ticks.
+ @note Must be called with interrupts off.
+ */
+void
+thread_wake (int64_t ticks)
+{
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin(&sleep_list); e != list_end(&sleep_list);
+       /* careful: remove or next */)
+    {
+      struct thread *t = list_entry (e, struct thread, sleep_elem);
+      ASSERT (is_thread(t));
+      if (t->sleep_end <= ticks)
+        {
+          TRACE ("wakeup %d sleep-util %"PRId64" when %"PRId64"\n",
+                 t->tid, t->sleep_end, ticks);
+          t->sleep_end = 0;
+          e = list_remove(&t->sleep_elem);
+          thread_unblock(t);
+        }
+      else
+       {
+         e = list_next(e);
+       }
+    }
 }
 
 /* Returns the name of the running thread. */
@@ -581,7 +641,7 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
