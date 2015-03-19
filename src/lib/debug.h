@@ -18,7 +18,26 @@ void debug_panic (const char *file, int line, const char *function,
 void debug_backtrace (void);
 void debug_backtrace_all (void);
 
+
+/* our debug message, please diable it after debug,
+   otherwise it will conflict with test.
+*/
+#define NDEBUG
+
+#ifdef NDEBUG
+#include <stdio.h>
+#include <string.h>
+
+#define TRACE(fmt, args...) do { const char *fn = __FILE__; \
+              printf("(tid-%d) %-10.10s %-10.10s:%d:%s(): " fmt, \
+              thread_tid(), thread_name(), \
+              fn + strlen(fn) - 10, __LINE__, __func__, ##args); } while (0)
+#else
+#define TRACE(fmt, ...)
 #endif
+
+
+#endif /* endof __LIB_DEBUG_H */
 
 
 
