@@ -1,29 +1,41 @@
-# Object files
+# Config stuff
+/.config
+/.config.cache
+/.cross_compile
+/image*.out
+
+# From development
+tags
+GPATH
+GRTAGS
+GTAGS
+tags.files
+cscope*
+*.swp
+
+# C Object and libs
 *.o
-*.ko
-*.obj
-*.elf
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
 *.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
 *.so
 *.so.*
-*.dylib
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# Flags, dependencies, etc.
+*.flags
+*.d
+.depend
+.hdepend
+*.h.old
+*.map
+*.diff
+*.IAB
+*.IAD
+*.IMB
+*.IMD
+*.PFI
+*.PO
+*.PR
+*.PRI
+*.PS
+
+#code coverage file
+*.gcno
