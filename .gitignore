@@ -39,3 +39,5 @@ cscope*
 
 #code coverage file
 *.gcno
+bochsout.txt
+bochsrc.txt
