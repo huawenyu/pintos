@@ -444,40 +444,8 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  /*
-  struct thread *cur = thread_current ();
-  enum intr_level old_level;
-
-  ASSERT (!intr_context ());
-
-  old_level = intr_disable ();
-  list_remove(&cur->elem);
-  cur->priority = new_priority;
-  thread_insert_ordered_read_list(cur);
-  cur->status = THREAD_RUNNING;
-  intr_set_level (old_level);
-  */
-  struct thread *cur = thread_current ();
-  struct list_elem *e;
-  struct thread *te = NULL;
-  enum intr_level old_level;
-
-  ASSERT (!intr_context ());
-
-  cur->priority = new_priority;
-
-  old_level = intr_disable ();
-  if (!list_empty(&ready_list))
-    {
-      e = list_front(&ready_list);
-      te = list_entry(e, typeof(*te), elem);
-    }
-  intr_set_level (old_level);
-
-  if (te && te->priority > new_priority)
-    {
-      thread_yield();
-    }
+  thread_current ()->priority = new_priority;
+  thread_yield_if_lower_priority ();
 }
 
 /* Returns the current thread's priority. */
