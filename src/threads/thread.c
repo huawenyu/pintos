@@ -154,6 +154,22 @@ thread_print_stats (void)
           idle_ticks, kernel_ticks, user_ticks);
 }
 
+static void
+thread_yield_if_lower_priority(void)
+{
+  enum intr_level old_level = intr_disable ();
+  struct thread *te;
+
+  if (!list_empty (&ready_list))
+    {
+      te = list_entry (list_front (&ready_list), typeof(*te), elem);
+      if (thread_current ()->priority < te->priority)
+        thread_yield();
+    }
+
+  intr_set_level(old_level);
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -215,6 +231,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield_if_lower_priority ();
 
   return tid;
 }
@@ -427,7 +444,40 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  /*
+  struct thread *cur = thread_current ();
+  enum intr_level old_level;
+
+  ASSERT (!intr_context ());
+
+  old_level = intr_disable ();
+  list_remove(&cur->elem);
+  cur->priority = new_priority;
+  thread_insert_ordered_read_list(cur);
+  cur->status = THREAD_RUNNING;
+  intr_set_level (old_level);
+  */
+  struct thread *cur = thread_current ();
+  struct list_elem *e;
+  struct thread *te = NULL;
+  enum intr_level old_level;
+
+  ASSERT (!intr_context ());
+
+  cur->priority = new_priority;
+
+  old_level = intr_disable ();
+  if (!list_empty(&ready_list))
+    {
+      e = list_front(&ready_list);
+      te = list_entry(e, typeof(*te), elem);
+    }
+  intr_set_level (old_level);
+
+  if (te && te->priority > new_priority)
+    {
+      thread_yield();
+    }
 }
 
 /* Returns the current thread's priority. */
