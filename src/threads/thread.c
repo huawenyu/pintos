@@ -235,6 +235,28 @@ thread_block (void)
   schedule ();
 }
 
+static bool
+__thread_insert_ordered_read_list_greater(
+  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const struct thread *ta = list_entry(a, typeof(*ta), elem);
+  const struct thread *tb = list_entry(b, typeof(*tb), elem);
+
+  if (ta->priority > tb->priority)
+    return true;
+
+  return false;
+
+}
+
+static void
+thread_insert_ordered_read_list(struct thread *t)
+{
+  list_insert_ordered (&ready_list, &t->elem,
+    __thread_insert_ordered_read_list_greater, NULL);
+  t->status = THREAD_READY;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -252,8 +274,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
-  t->status = THREAD_READY;
+  thread_insert_ordered_read_list(t);
   intr_set_level (old_level);
 }
 
@@ -375,9 +396,12 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
-  cur->status = THREAD_READY;
+    thread_insert_ordered_read_list(cur);
+  else
+    cur->status = THREAD_READY;
+
   schedule ();
   intr_set_level (old_level);
 }
