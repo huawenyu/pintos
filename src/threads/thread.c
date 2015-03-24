@@ -170,6 +170,28 @@ thread_yield_if_lower_priority(void)
   intr_set_level(old_level);
 }
 
+static bool
+__thread_insert_ordered_read_list_greater(
+  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  const struct thread *ta = list_entry(a, typeof(*ta), elem);
+  const struct thread *tb = list_entry(b, typeof(*tb), elem);
+
+  if (ta->priority > tb->priority)
+    return true;
+
+  return false;
+
+}
+
+static void
+thread_insert_ordered_read_list(struct thread *t)
+{
+  list_insert_ordered (&ready_list, &t->elem,
+    __thread_insert_ordered_read_list_greater, NULL);
+  t->status = THREAD_READY;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -231,6 +253,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+
+  /* Current thread yield if the new creatted thread have higher priority */
   thread_yield_if_lower_priority ();
 
   return tid;
@@ -243,35 +267,13 @@ thread_create (const char *name, int priority,
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
 void
-thread_block (void) 
+thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
-}
-
-static bool
-__thread_insert_ordered_read_list_greater(
-  const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
-{
-  const struct thread *ta = list_entry(a, typeof(*ta), elem);
-  const struct thread *tb = list_entry(b, typeof(*tb), elem);
-
-  if (ta->priority > tb->priority)
-    return true;
-
-  return false;
-
-}
-
-static void
-thread_insert_ordered_read_list(struct thread *t)
-{
-  list_insert_ordered (&ready_list, &t->elem,
-    __thread_insert_ordered_read_list_greater, NULL);
-  t->status = THREAD_READY;
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
